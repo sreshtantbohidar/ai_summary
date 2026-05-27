@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Generated large files (M3U/JSON outputs)
+iptv_channels.m3u
+iptv_channels.json
+iptv_verified.m3u
+iptv_verified.json
+
+# OS
+.DS_Store
+Thumbs.db
