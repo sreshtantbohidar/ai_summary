@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Summary Report Generator</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#242836;--border:#2e3348;
+  --text:#e4e6f0;--text-dim:#8b8fa3;--accent:#6366f1;--accent-dim:#6366f122;
+  --green:#4CAF50;--blue:#2196F3;--purple:#9C27B0;--orange:#FF9800;--red:#f44336;
+  --radius:12px;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.6;min-height:100vh;padding:0;margin:0}
+
+/* ── Top nav bar ── */
+.navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.navbar-brand{font-size:22px;font-weight:800;display:flex;align-items:center;gap:10px}
+.navbar-brand span{background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.navbar-status{display:flex;align-items:center;gap:16px;font-size:13px;color:var(--text-dim)}
+.status-pill{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:var(--surface2);border:1px solid var(--border)}
+.status-dot{width:8px;height:8px;border-radius:50%}
+.status-dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}
+.status-dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
+
+/* ── Main layout ── */
+.layout{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 60px)}
+
+/* ── Sidebar ── */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px;overflow-y:auto;height:calc(100vh - 60px);position:sticky;top:60px}
+.sidebar-section{margin-bottom:24px}
+.sidebar-section h3{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.reports-list{list-style:none}
+.reports-list li{padding:12px;border-radius:8px;margin-bottom:6px;cursor:pointer;border:1px solid transparent;transition:all .15s}
+.reports-list li:hover{background:var(--surface2);border-color:var(--border)}
+.reports-list li .r-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.reports-list li .r-meta{font-size:11px;color:var(--text-dim);margin-top:4px}
+.r-mode{font-size:10px;padding:2px 8px;border-radius:10px;display:inline-block;margin-top:6px;font-weight:600}
+.empty-state{text-align:center;padding:30px 16px;color:var(--text-dim);font-size:13px;border:1px dashed var(--border);border-radius:8px}
+
+/* ── Main content ── */
+.main{padding:32px 48px;max-width:800px}
+
+/* ── Mode selector ── */
+.mode-section{margin-bottom:28px}
+.mode-section label{display:block;font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text)}
+.mode-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.mode-btn{
+  display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 12px;border-radius:var(--radius);
+  border:2px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:all .15s
+}
+.mode-btn:hover{border-color:var(--accent);background:var(--accent-dim);transform:translateY(-1px)}
+.mode-btn.active{border-color:var(--accent);background:var(--accent-dim);box-shadow:0 0 0 3px var(--accent-dim)}
+.mode-btn .m-icon{font-size:28px}
+.mode-btn .m-label{font-size:13px;font-weight:700}
+.mode-btn .m-desc{font-size:10px;color:var(--text-dim);text-align:center;line-height:1.3}
+
+/* ── Form elements ── */
+.form-section{margin-bottom:24px}
+.form-section label{display:block;font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text)}
+.form-section label .hint{font-weight:400;color:var(--text-dim);font-size:12px}
+textarea{width:100%;padding:14px 18px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:15px;font-family:inherit;resize:vertical;min-height:120px;transition:border-color .15s;line-height:1.6}
+textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+textarea::placeholder{color:var(--text-dim);font-size:14px}
+
+.filters-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.filters-toggle{font-size:12px;color:var(--accent);cursor:pointer;text-decoration:none}
+.filters-toggle:hover{text-decoration:underline}
+.filters-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.filters-grid select{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;cursor:pointer}
+.filters-grid select:focus{outline:none;border-color:var(--accent)}
+
+.generate-btn{
+  width:100%;padding:18px;border-radius:var(--radius);border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  color:#fff;font-size:17px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;
+  justify-content:center;gap:10px;margin-top:8px;letter-spacing:0.3px
+}
+.generate-btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px #6366f155}
+.generate-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* ── Loading ── */
+.loading{display:none;text-align:center;padding:60px 20px}
+.loading.active{display:block}
+.spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:var(--text-dim);font-size:15px}
+
+/* ── Error ── */
+.error-msg{background:#f4433618;border:1px solid #f4433644;color:#f44336;padding:14px 18px;border-radius:var(--radius);margin-top:16px;display:none;font-size:14px}
+.error-msg.show{display:block}
+
+/* ── Responsive ── */
+@media(max-width:1024px){
+  .layout{grid-template-columns:240px 1fr}
+  .main{padding:24px 32px}
+  .mode-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:768px){
+  .layout{grid-template-columns:1fr}
+  .sidebar{position:relative;height:auto;border-right:none;border-bottom:1px solid var(--border);top:0}
+  .main{padding:20px;max-width:100%}
+  .navbar{padding:12px 16px}
+  .mode-grid{grid-template-columns:1fr 1fr}
+  .filters-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Top nav -->
+<nav class="navbar">
+  <div class="navbar-brand">📊 <span>AI Report Generator</span></div>
+  <div class="navbar-status">
+    <div class="status-pill" id="es-status">
+      <span class="status-dot" id="es-dot"></span>
+      <span id="es-text">Checking...</span>
+    </div>
+    <div class="status-pill" id="ollama-status">
+      <span class="status-dot" id="ollama-dot"></span>
+      <span id="ollama-text">Checking...</span>
+    </div>
+  </div>
+</nav>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <h3>Recent Reports</h3>
+      {% if reports %}
+      <ul class="reports-list">
+        {% for r in reports %}
+        <li onclick="window.location.href='/report/{{ r.report_id }}'">
+          <div class="r-title">{{ r.title }}</div>
+          <div class="r-meta">{{ r.saved_at or r.timestamp }} · {{ r.total_hits }} docs · {{ r.generation_time }}s</div>
+          <span class="r-mode" style="background:{{ modes[r.mode].color }}22;color:{{ modes[r.mode].color }}">
+            {{ modes[r.mode].icon }} {{ modes[r.mode].label }}
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty-state">No reports yet.<br>Generate your first one!</div>
+      {% endif %}
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Quick Tips</h3>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.8">
+        <p>💡 <strong style="color:var(--text)">"List all locations"</strong> — uses ES aggregation to find every distinct value</p>
+        <p>🔍 <strong style="color:var(--text)">"Analyze patterns in X"</strong> — deep thematic analysis with citations</p>
+        <p>📊 <strong style="color:var(--text)">Use filters</strong> — narrow scope before generating for faster results</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+    <form id="report-form">
+      <!-- Mode selection -->
+      <div class="mode-section">
+        <label>Select Mode</label>
+        <div class="mode-grid">
+          {% for key, m in modes.items() %}
+          <div class="mode-btn {{ 'active' if key == 'answer' else '' }}" data-mode="{{ key }}" onclick="selectMode('{{ key }}')">
+            <span class="m-icon">{{ m.icon }}</span>
+            <span class="m-label">{{ m.label }}</span>
+            <span class="m-desc">{{ m.description }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <input type="hidden" id="mode" name="mode" value="answer">
+      </div>
+
+      <!-- Query -->
+      <div class="form-section">
+        <label>Your Question / Prompt</label>
+        <textarea id="query" name="query" placeholder="Examples:&#10;• List all locations in the dataset&#10;• What are the key deployment activities?&#10;• Summarize all equipment-related records&#10;• Analyze patterns in patrolling activities&#10;• Predict maintenance needs for next quarter" required></textarea>
+      </div>
+
+      <!-- Filters -->
+      <div class="form-section">
+        <div class="filters-header">
+          <label style="margin:0">Filters <span class="hint">(optional — narrow your data scope)</span></label>
+          <a class="filters-toggle" onclick="toggleFilters()" id="filters-toggle">Show filters ▼</a>
+        </div>
+        <div class="filters-grid" id="filters-grid" style="display:none">
+          <select id="filter_activity_type" name="activity_type">
+            <option value="">All Activity Types</option>
+          </select>
+          <select id="filter_form_type" name="form_type">
+            <option value="">All Form Types</option>
+          </select>
+          <select id="filter_source_type" name="source_type">
+            <option value="">All Source Types</option>
+          </select>
+          <select id="filter_location" name="location_name">
+            <option value="">All Locations</option>
+          </select>
+          <select id="filter_activity" name="activity_name">
+            <option value="">All Activities</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="generate-btn" id="generate-btn">
+        ⚡ Generate Report
+      </button>
+    </form>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loading-text">Searching documents & generating report...</div>
+    </div>
+  </main>
+</div>
+
+<script>
+// Mode selection
+function selectMode(mode) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('mode').value = mode;
+}
+
+// Toggle filters visibility
+let filtersVisible = false;
+function toggleFilters() {
+  filtersVisible = !filtersVisible;
+  document.getElementById('filters-grid').style.display = filtersVisible ? 'grid' : 'none';
+  document.getElementById('filters-toggle').textContent = filtersVisible ? 'Hide filters ▲' : 'Show filters ▼';
+}
+
+// Status polling
+async function checkStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+
+    const es = d.components.elasticsearch || {};
+    const esDot = document.getElementById('es-dot');
+    const esText = document.getElementById('es-text');
+    if (es.status === 'ok') {
+      esDot.className = 'status-dot green';
+      esText.textContent = `ES: ${es.cluster_status} · ${es.index_vec_fatboy_data_count || 0} docs`;
+    } else {
+      esDot.className = 'status-dot red';
+      esText.textContent = 'ES: offline';
+    }
+
+    const ollama = d.components.ollama || {};
+    const ollamaDot = document.getElementById('ollama-dot');
+    const ollamaText = document.getElementById('ollama-text');
+    if (ollama.status === 'ok') {
+      ollamaDot.className = 'status-dot green';
+      ollamaText.textContent = `Ollama: ${ollama.models_count} models`;
+    } else {
+      ollamaDot.className = 'status-dot red';
+      ollamaText.textContent = 'Ollama: offline';
+    }
+  } catch(e) {
+    document.getElementById('es-dot').className = 'status-dot red';
+    document.getElementById('es-text').textContent = 'ES: unreachable';
+    document.getElementById('ollama-dot').className = 'status-dot red';
+    document.getElementById('ollama-text').textContent = 'Ollama: unreachable';
+  }
+}
+
+// Load filter options
+async function loadFilters() {
+  try {
+    const r = await fetch('/api/filters');
+    const d = await r.json();
+    if (d.error) return;
+
+    const mappings = [
+      ['filter_activity_type', 'activity_type'],
+      ['filter_form_type', 'form_type'],
+      ['filter_source_type', 'source_type'],
+      ['filter_location', 'location_name'],
+      ['filter_activity', 'activity_name'],
+    ];
+
+    for (const [selectId, field] of mappings) {
+      const sel = document.getElementById(selectId);
+      if (!sel) continue;
+      const values = d[field] || [];
+      const defaultOpt = sel.options[0];
+      sel.innerHTML = '';
+      sel.appendChild(defaultOpt);
+      values.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        sel.appendChild(opt);
+      });
+    }
+  } catch(e) {
+    console.warn('Failed to load filter options:', e);
+  }
+}
+
+// Form submission — async with polling
+document.getElementById('report-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('generate-btn');
+  const loading = document.getElementById('loading');
+  const errorDiv = document.getElementById('error-msg');
+  const loadingText = document.getElementById('loading-text');
+
+  errorDiv.classList.remove('show');
+  loading.classList.add('active');
+  btn.disabled = true;
+
+  const formData = {
+    query: document.getElementById('query').value.trim(),
+    mode: document.getElementById('mode').value,
+    activity_type: document.getElementById('filter_activity_type').value,
+    form_type: document.getElementById('filter_form_type').value,
+    source_type: document.getElementById('filter_source_type').value,
+    location_name: document.getElementById('filter_location').value,
+    activity_name: document.getElementById('filter_activity').value,
+  };
+
+  try {
+    // Step 1: Start the job
+    loadingText.textContent = 'Starting generation job...';
+    const resp = await fetch('/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData),
+    });
+
+    if (!resp.ok && resp.status !== 202) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.error || `Server error (${resp.status})`);
+    }
+
+    const data = await resp.json();
+    const jobId = data.job_id;
+
+    if (!jobId) {
+      throw new Error('No job ID returned from server');
+    }
+
+    // Step 2: Poll for completion
+    loadingText.textContent = 'Job queued — waiting for generation...';
+
+    const maxWait = 900; // 15 minutes max
+    const pollInterval = 3000; // check every 3 seconds
+    let elapsed = 0;
+
+    while (elapsed < maxWait) {
+      await new Promise(r => setTimeout(r, pollInterval));
+      elapsed += pollInterval / 1000;
+
+      const statusResp = await fetch(`/jobs/${jobId}`);
+      const statusData = await statusResp.json();
+
+      if (statusData.status === 'done') {
+        loadingText.textContent = `Done in ${statusData.generation_time}s! Opening report...`;
+        setTimeout(() => {
+          window.open(`/report/${statusData.report_id}`, '_blank');
+          loading.classList.remove('active');
+          btn.disabled = false;
+          setTimeout(() => window.location.reload(), 1000);
+        }, 500);
+        return;
+      }
+
+      if (statusData.status === 'error') {
+        throw new Error(statusData.error || 'Generation failed');
+      }
+
+      // Still running — update status
+      const seconds = Math.round(elapsed);
+      if (statusData.status === 'running') {
+        loadingText.textContent = `Generating report... (${seconds}s elapsed)`;
+      } else {
+        loadingText.textContent = `Job queued... (${seconds}s elapsed, position: ${statusData.status})`;
+      }
+    }
+
+    throw new Error('Generation timed out after 15 minutes. The LLM may be overloaded.');
+
+  } catch (err) {
+    loading.classList.remove('active');
+    btn.disabled = false;
+    errorDiv.textContent = err.message;
+    errorDiv.classList.add('show');
+  }
+});
+
+// Init
+checkStatus();
+loadFilters();
+setInterval(checkStatus, 30000);
+</script>
+</body>
+</html>

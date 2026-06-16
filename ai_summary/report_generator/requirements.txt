@@ -1,0 +1,5 @@
+flask>=3.0
+elasticsearch>=8.0
+requests>=2.31
+flasgger>=0.9.7
+PyYAML>=6.0
