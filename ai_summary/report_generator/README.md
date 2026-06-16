@@ -6,6 +6,7 @@ Generate beautiful HTML reports from Elasticsearch data using AI. Supports 14+ i
 
 - [Features](#features)
 - [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Usage](#usage)
@@ -15,6 +16,7 @@ Generate beautiful HTML reports from Elasticsearch data using AI. Supports 14+ i
 - [Intent Types](#intent-types)
 - [API Reference](#api-reference)
 - [Examples](#examples)
+- [Vector Index Setup](#vector-index-setup)
 
 ## Features
 
@@ -77,9 +79,8 @@ User Query
 ### Prerequisites
 
 - Python 3.10+
-- Elasticsearch 8.x running with `vec_fatboy_data` index (1000 docs with 768-dim embeddings)
-- Ollama running with `llama3:8b-instruct-q8_0` model
-- Git
+- Elasticsearch 8.x running with `vec_fatboy_data` index
+- Ollama running with `llama3:8b-instruct-q8_0` and `nomic-embed-text`
 
 ### Setup
 
@@ -363,6 +364,38 @@ report_generator/
 │   └── report_*.html       # Downloadable HTML
 └── logs/
     └── app.log             # Application logs
+```
+
+## Vector Index Setup
+
+If you need to create the `vec_fatboy_data` index from your source data:
+
+```bash
+cd ..
+pip install elasticsearch requests
+python scripts/create_vec_index.py --help
+```
+
+**Options:**
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--create-only` | false | Only create the index, skip indexing |
+| `--index-only` | false | Only run indexing (index must exist) |
+| `--dry-run` | false | Show what would happen |
+| `--batch-size` | 50 | Batch size for embedding |
+| `--limit` | None | Limit number of docs (for testing) |
+| `--verify` | false | Run verification after indexing |
+
+**Example:**
+```bash
+# Full run (create index + embed all docs)
+python scripts/create_vec_index.py
+
+# Test with 10 docs first
+python scripts/create_vec_index.py --limit 10 --verify
+
+# Re-index only (keep existing index)
+python scripts/create_vec_index.py --index-only --batch-size 100
 ```
 
 ## License
